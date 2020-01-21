@@ -34,7 +34,7 @@
 namespace arm_compute
 {
 /** Constant value used to indicate maximum dimensions of a Window, TensorShape and Coordinates */
-constexpr size_t MAX_DIMS = 6;
+constexpr size_t MAX_DIMS = 16;
 
 /** Dimensions with dimensionality */
 template <typename T>

@@ -244,15 +244,18 @@ private:
     /** Remove trailing dimensions of size 1 from the reported number of dimensions. */
     void apply_dimension_correction()
     {
-        for(int i = static_cast<int>(_num_dimensions) - 1; i > 0; --i)
+        if (_num_dimensions > 0)
         {
-            if(_id[i] == 1)
+            for(int i = _num_dimensions - 1; i > 0; --i)
             {
-                --_num_dimensions;
-            }
-            else
-            {
-                break;
+                if(_id[i] == 1)
+                {
+                    --_num_dimensions;
+                }
+                else
+                {
+                    break;
+                }
             }
         }
     }

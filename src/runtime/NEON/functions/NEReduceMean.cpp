@@ -182,10 +182,14 @@ void NEReduceMean::configure(ITensor *input, const Coordinates &reduction_axis, 
         auto_init_if_empty(*output->info(), input->info()->clone()->set_tensor_shape(out_shape));
         _reshape.configure(&_reduced_outs[_reduction_ops - 1], output);
     }
+
+    m_tmp_output = output;
+    m_tmp_input = input;
 }
 
 void NEReduceMean::run()
 {
+    IOFormatInfo iofmt = IOFormatInfo(IOFormatInfo::PrintRegion::ValidRegion, IOFormatInfo::PrecisionType::Full);
     MemoryGroupResourceScope scope_mg(_memory_group);
     for(auto &kernel : _reduction_kernels)
     {
@@ -196,5 +200,129 @@ void NEReduceMean::run()
     {
         _reshape.run();
     }
+
+    /*
+    std::cout << "ReduceMean output:" << std::endl;
+    m_tmp_output->print(std::cout, iofmt);
+    */
+#define NAIVE_CHECK
+#ifdef NAIVE_CHECK
+// Other naive method:
+// get info
+ITensorInfo *input_info = m_tmp_input->info();
+ITensorInfo *output_info = m_tmp_output->info();
+
+size_t input_dims = input_info->num_dimensions();
+size_t input_chs = input_info->num_channels();
+size_t output_dims = output_info->num_dimensions();
+size_t output_chs = output_info->num_channels();
+
+/*
+std::cout << "Input dims: " << input_dims << " Input Chl: " << input_chs << std::endl;
+std::cout << "Output dims: " << output_dims << " Output Chl: " << output_chs << std::endl;
+*/
+
+Coordinates c;
+c.set_num_dimensions(output_dims);
+std::fill(c.begin(), c.end(), 0);
+TensorShape const &out_shape = output_info->tensor_shape();
+TensorShape const &in_shape = input_info->tensor_shape();
+
+/*
+printf("InputShape:");
+for (int i = 0; i < input_dims; i++) {
+    printf(" %d", in_shape[i]);
+}
+printf("\n");
+
+printf("OutputShape:");
+for (int i = 0; i < c.num_dimensions(); i++) {
+    printf(" %d", out_shape[i]);
+}
+printf("\n");
+*/
+
+// assume axis is [1, 2]
+Coordinates ic;
+ic.set_num_dimensions(input_dims);
+std::fill(c.begin(), c.end(), 0);
+std::vector<uint8_t> voutput;
+for (int i = 0; i < in_shape[0]; i++) {
+    ssize_t mean = 0;
+    ssize_t dim = 0;
+    for (int j = 0; j < in_shape[1]; j++) {
+        for (int k = 0; k < in_shape[2]; k++) {
+            ic[0] = i;
+            ic[1] = j;
+            ic[2] = k;
+            ic[3] = 0;
+            uint8_t *p = m_tmp_input->ptr_to_element(ic);
+            uint8_t b = *p;
+            mean += b;
+            dim++;
+        }
+    }
+    //printf("sum: %zu dim: %zu", mean, dim);
+    //mean = (ssize_t)(((float)mean / (float)dim) + 0.5);
+    //mean /= (dim-1);
+    mean /= dim;
+    //printf(" mean: %zu\n", mean);
+    voutput.push_back(mean);
+}
+
+
+//printf("voutput size: %zu\n", voutput.size());
+
+// access buffer
+// input->ptr_to_element();
+// compute max
+// reduce
+//
+    // Output results... somehow?
+/*
+    std::cout << "VOutput: "<< std::endl;
+    for (auto it = voutput.begin(); it != voutput.end(); ++it) {
+        printf("%d ", *it);
+    }
+    std::cout << std::endl;
+
+    std::cout << "Output: "<< std::endl;
+    m_tmp_output->print(std::cout, iofmt);
+
+    for (int i = 0; i < 64; i++) {
+        c[0] = i;
+        uint8_t *p = m_tmp_output->ptr_to_element(c);
+        if (voutput[i] != *p) {
+            printf("Differ!: %d %d vs %d\n", i, voutput[i], *p);
+            break;
+        }
+    }
+*/
+int v = 0;
+for (;;) {
+    uint8_t *p = m_tmp_output->ptr_to_element(c);
+    *p = voutput[v];
+
+
+    // Iterate dimensions
+    c[c.num_dimensions()-1]++;
+    for (int i = c.num_dimensions()-1; i >= 1; i--) {
+        if (c[i] >= out_shape[i]) {
+            c[i] = 0;
+            c[i-1]++;
+        }
+        else {
+            break;
+        }
+    }
+    if (c[0] >= out_shape[0]) {
+        break;
+    }
+    v++;
+}
+
+
+
+#endif
 }
 } // namespace arm_compute

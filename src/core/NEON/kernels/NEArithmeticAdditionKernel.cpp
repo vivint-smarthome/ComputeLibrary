@@ -758,6 +758,10 @@ void NEArithmeticAdditionKernel::configure(const ITensor *input1, const ITensor 
     _output = output;
     _policy = policy;
 
+    // NOTE: added this
+    //_policy = ConvertPolicy::WRAP;
+    //policy = ConvertPolicy::WRAP;
+
     std::string function_to_call("add_");
     function_to_call += policy == ConvertPolicy::WRAP ? "wrap_" : "saturate_";
     function_to_call += string_from_data_type(input1->info()->data_type()) + "_";

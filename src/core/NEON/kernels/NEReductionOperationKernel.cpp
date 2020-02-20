@@ -449,6 +449,7 @@ struct RedOpX
                     break;
                 case ReductionOperation::MEAN_SUM:
                 case ReductionOperation::SUM:
+                    printf("Here1\n");
                     vec_res_value = wrapper::vadd(vec_elements, vec_res_value);
                     break;
                 case ReductionOperation::PROD:
@@ -490,6 +491,7 @@ struct RedOpX
             case ReductionOperation::SUM_SQUARE:
             case ReductionOperation::MEAN_SUM:
             {
+                printf("Here2\n");
                 auto carry_res = wrapper::vpadd(wrapper::vgethigh(vec_res_value), wrapper::vgetlow(vec_res_value));
                 for(int i = 0; i < S / 4; ++i)
                 {
@@ -530,7 +532,10 @@ struct RedOpX
             }
             case ReductionOperation::MAX:
             {
-                *(reinterpret_cast<T *>(output.ptr())) = wrapper::vgetlane(calculate_max(vec_res_value), 0);
+                auto tmp_out = wrapper::vgetlane(calculate_max(vec_res_value), 0);
+                std::cout << "here" << std::endl;
+                std::cout << tmp_out << std::endl;
+                *(reinterpret_cast<T *>(output.ptr())) = tmp_out;
                 break;
             }
             default:
@@ -573,6 +578,7 @@ struct RedOpX_qasymm8
                 case ReductionOperation::SUM:
                 case ReductionOperation::MEAN_SUM:
                 {
+                    printf("Here3\n");
                     const auto temp16x8t_1 = wrapper::vmovl(wrapper::vgetlow(vec_elements));
                     const auto temp16x8t_2 = wrapper::vmovl(wrapper::vgethigh(vec_elements));
 
@@ -684,6 +690,7 @@ struct RedOpX_qasymm8
             }
             default:
             {
+                printf("Here4\n");
                 auto carry_res = wrapper::vadd(vec_res_value1, vec_res_value2);
                 carry_res      = wrapper::vadd(carry_res, vec_res_value3);
                 carry_res      = wrapper::vadd(carry_res, vec_res_value4);
@@ -763,6 +770,7 @@ struct RedOpYZW
                 {
                     case ReductionOperation::SUM:
                     case ReductionOperation::MEAN_SUM:
+                        printf("Here5\n");
                         vec_res_value = wrapper::vadd(vec_elements, vec_res_value);
                         break;
                     case ReductionOperation::SUM_SQUARE:
@@ -802,6 +810,7 @@ struct RedOpYZW
 
             if(op == ReductionOperation::MEAN_SUM)
             {
+                printf("Here6\n");
                 auto vec_width_inv = wrapper::vinv(wrapper::vdup_n(static_cast<T>(in_info.dimension(axis)), ExactTagType{}));
                 vec_res_value      = wrapper::vmul(vec_res_value, vec_width_inv);
             }
@@ -929,6 +938,8 @@ struct RedOpYZW_qasymm8
                     case ReductionOperation::SUM:
                     case ReductionOperation::MEAN_SUM:
                     {
+                        // NOTE: Check this
+                        //printf("Here7\n");
                         const auto temp16x8t_1 = wrapper::vmovl(wrapper::vgetlow(vec_elements));
                         const auto temp16x8t_2 = wrapper::vmovl(wrapper::vgethigh(vec_elements));
 
@@ -941,6 +952,9 @@ struct RedOpYZW_qasymm8
                         vec_res_value2 = wrapper::vadd(temp32x4t_2, vec_res_value2);
                         vec_res_value3 = wrapper::vadd(temp32x4t_3, vec_res_value3);
                         vec_res_value4 = wrapper::vadd(temp32x4t_4, vec_res_value4);
+
+                        // Is this correct?
+
                         break;
                     }
                     case ReductionOperation::PROD:
@@ -1004,6 +1018,8 @@ struct RedOpYZW_qasymm8
 
             if(op == ReductionOperation::MEAN_SUM)
             {
+                // NOTE: Look here
+                //printf("Here8\n");
                 const auto vec_width_inv = wrapper::vinv(vdupq_n_f32(in_info.dimension(axis)));
                 vec_res_value1_f         = wrapper::vmul(vcvtq_f32_u32(vec_res_value1), vec_width_inv);
                 vec_res_value2_f         = wrapper::vmul(vcvtq_f32_u32(vec_res_value2), vec_width_inv);
@@ -1039,12 +1055,15 @@ struct RedOpYZW_qasymm8
                 wrapper::vstore(reinterpret_cast<uint32_t *>(output.ptr()) + 8, vec_res_idx.val[2]);
                 wrapper::vstore(reinterpret_cast<uint32_t *>(output.ptr()) + 12, vec_res_idx.val[3]);
             }
-            else if(op == ReductionOperation::ARG_IDX_MIN)
+            else if(op == ReductionOperation::MIN || op == ReductionOperation::MAX)
             {
+                // NOTE: we added this
                 wrapper::vstore(output.ptr(), vec_res_value);
             }
             else
             {
+                //printf("Here write\n");
+                // NOTE: check this
                 const auto temp16x8t_1 = vcombine_u16(wrapper::vqmovn(vec_res_value1), wrapper::vqmovn(vec_res_value2));
                 const auto temp16x8t_2 = vcombine_u16(wrapper::vqmovn(vec_res_value3), wrapper::vqmovn(vec_res_value4));
                 auto       res         = vcombine_u8(wrapper::vqmovn(temp16x8t_1), wrapper::vqmovn(temp16x8t_2));
@@ -1270,5 +1289,24 @@ void NEReductionOperationKernel::run(const Window &window, const ThreadInfo &inf
     ARM_COMPUTE_ERROR_ON_INVALID_SUBWINDOW(INEKernel::window(), window);
 
     reduce_op(window, _input, _output, _reduction_axis, _op);
+    /*
+    if (_op != ReductionOperation::MAX) {
+    printf("ReductionKernel: non Max op: %d\n", _op);
+        if (_op == ReductionOperation::MEAN_SUM) {
+            printf("Mean Sum\n");
+        }
+        else {
+            printf("Other\n");
+        }
+
+    }
+    */
+    //IOFormatInfo iofmt;
+    //printf("input\n");
+    //_input->print(std::cout, iofmt);
+    //printf("\n");
+    //printf("output\n");
+    //_output->print(std::cout, iofmt);
+    //printf("\n");
 }
 } // namespace arm_compute

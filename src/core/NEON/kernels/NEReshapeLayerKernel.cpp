@@ -63,12 +63,39 @@ inline void reshape_tensor(const Window &window, const ITensor *input, ITensor *
 
     Iterator in(input, window);
 
+    int input_dims = input_shape.num_dimensions();
+    //printf("reshape: %d dim copy\n", input_dims);
+    size_t el_copy = 0;
     execute_window_loop(window, [&](const Coordinates & id)
     {
         output_coord                                                 = index2coords(output_shape, coords2index(input_shape, id));
+        /*
+        printf("Copy input: (");
+        for (int i = 0; i < input_dims; i++) {
+            printf(" %d", id[i]);
+        }
+        printf(" ) to (");
+        for (int i = 0; i < output_coord.num_dimensions(); i++) {
+            printf(" %d", output_coord[i]);
+        }
+        printf(" )\n");
+        */
         *reinterpret_cast<T *>(output->ptr_to_element(output_coord)) = *reinterpret_cast<T *>(in.ptr());
+        //el_copy++;
     },
     in);
+
+    /*
+    size_t should_copy = 1;
+    for (int i = 0; i < input_dims; i++) {
+        should_copy *= input_shape[i];
+    }
+
+    if (should_copy != el_copy) {
+    printf("reshape Copied %zu elements\n", el_copy);
+    printf("Should have copied %zu elements\n", should_copy);
+    }
+    */
 }
 } // namespace
 

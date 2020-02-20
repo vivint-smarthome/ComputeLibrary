@@ -74,6 +74,10 @@ private:
     NEReshapeLayer                    _reshape;
     int                               _reduction_ops;
     bool                              _keep_dims;
+
+    // TMP
+    const ITensor *m_tmp_input;
+    const ITensor *m_tmp_output;
 };
 } // namespace arm_compute
 
